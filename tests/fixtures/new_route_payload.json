@@ -1,0 +1,14 @@
+{
+  "repo": "my-api",
+  "owner": "acme",
+  "branch": "main",
+  "installationId": 42,
+  "commitMessage": "feat: add GET /settings route",
+  "commitId": "abc1234567890",
+  "changedFiles": ["src/routes/settings.js"],
+  "optional": {
+    "diffs": {
+      "src/routes/settings.js": "@@ -0,0 +1,12 @@\n+const router = require('express').Router();\n+\n+router.get('/settings', async (req, res) => {\n+  const settings = await getSettings();\n+  res.json(settings);\n+});\n+\n+module.exports = router;"
+    }
+  }
+}

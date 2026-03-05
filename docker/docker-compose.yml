@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  db:
+    image: ankane/pgvector:latest
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: autodocs
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../app/schema/create_tables.sql:/docker-entrypoint-initdb.d/01_schema.sql
+
+  autodocs:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    depends_on:
+      - db
+    environment:
+      PG_DSN: postgresql://user:pass@db:5432/autodocs
+
+volumes:
+  pgdata:
