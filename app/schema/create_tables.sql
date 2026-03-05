@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS summaries (
   repo_id TEXT NOT NULL,
   file_path TEXT NOT NULL,
   summary TEXT NOT NULL,
-  embedding vector(1536),
+  embedding vector(768),         -- nomic-embed-text; change to 1536 for other models
   last_updated_commit TEXT,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
   UNIQUE (repo_id, file_path)

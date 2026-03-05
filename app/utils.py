@@ -50,20 +50,46 @@ def replace_marker_content(text: str, section: str, new_content: str) -> str:
 
 
 def parse_llm_json(raw: str) -> dict:
-    """Robustly parse JSON from LLM output, stripping markdown fences."""
+    """
+    Robustly parse JSON from LLM output.
+    Handles: markdown fences, leading whitespace, embedded backtick code blocks
+    inside string values (the most common LLM failure mode).
+    """
     raw = raw.strip()
+
+    # Strip outer markdown fence e.g. ```json ... ``` or ``` ... ```
     if raw.startswith("```"):
         lines = raw.split("\n")
-        raw = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        # fallback: find first { ... }
-        start = raw.find("{")
-        end = raw.rfind("}") + 1
-        if start != -1 and end > start:
-            return json.loads(raw[start:end])
-        raise
+        start_line = 1
+        end_line = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
+        raw = "\n".join(lines[start_line:end_line]).strip()
+
+    # Isolate the outermost JSON object
+    start = raw.find("{")
+    end = raw.rfind("}") + 1
+    if start == -1 or end <= start:
+        raise ValueError(f"No JSON object found in LLM output: {raw[:200]}")
+    raw = raw[start:end]
+
+    # Replace triple-backtick fences that the LLM embeds inside "content" values.
+    # These break json.loads because backticks inside a JSON string are fine but
+    # the LLM often forgets to escape newlines, producing unterminated strings.
+    # We swap them out, parse, then restore in all string values.
+    PLACEHOLDER = "__BACKTICK3__"
+    raw_safe = raw.replace("```", PLACEHOLDER)
+
+    parsed = json.loads(raw_safe)
+
+    def restore(obj):
+        if isinstance(obj, str):
+            return obj.replace(PLACEHOLDER, "```")
+        if isinstance(obj, dict):
+            return {k: restore(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [restore(i) for i in obj]
+        return obj
+
+    return restore(parsed)
 
 
 def build_repo_id(owner: str, repo: str) -> str:
