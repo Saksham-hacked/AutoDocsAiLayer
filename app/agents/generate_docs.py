@@ -44,19 +44,22 @@ async def generate_docs(
             # Fetch existing doc — fall back to empty string if Layer1 unavailable
             doc_content = ""
             try:
-                doc_content = await layer1.fetch_file(doc_path, req.repo, req.owner, req.branch)
+                doc_content = await layer1.fetch_file(doc_path, req.repo, req.owner, req.branch, req.installationId)
             except Exception as e:
                 log("generate_docs", "doc_fetch_failed", repo_id=state.repo_id,
                     commit_id=req.commitId, details={"doc": doc_path, "error": str(e)})
 
             existing_marker = extract_marker_content(doc_content, marker_section)
 
+            existing = existing_marker.strip() if existing_marker and existing_marker.strip() else ""
             user_msg = (
-                f"Doc file: {doc_path}\nSection marker: {marker_section}\n"
-                f"Existing marker content:\n{existing_marker or '(empty — new section)'}\n\n"
-                f"Changed file summaries:\n{changed_summaries_text or '(none)'}\n\n"
-                f"Retrieved context summaries:\n{retrieved_text or '(none)'}\n\n"
-                f"Diff:\n{diff_text or '(none)'}\n\n"
+                f"Doc file: {doc_path}\nSection marker: {marker_section}\n\n"
+                f"Current section content (copy this into your output unchanged, then append new entries):\n"
+                f"{existing if existing else '(empty)'}\n\n"
+                f"What changed in this commit:\n"
+                f"Summaries: {changed_summaries_text or '(none)'}\n"
+                f"Diff: {diff_text or '(none)'}\n"
+                f"Retrieved context: {retrieved_text or '(none)'}\n\n"
                 "Return ONLY valid JSON with keys: content (string), confidence (High|Medium|Low), "
                 "sources (list of {path, lines, score})."
             )
@@ -84,6 +87,7 @@ async def generate_docs(
                 content=content,
                 confidence=confidence,
                 sources=sources,
+                marker_section=marker_section,
             ))
             log("generate_docs", "generated", repo_id=state.repo_id, commit_id=req.commitId,
                 details={"doc": doc_path, "confidence": confidence, "content_len": len(content)})

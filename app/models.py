@@ -29,6 +29,7 @@ class FileUpdate(BaseModel):
     content: str
     confidence: str
     sources: List[SourceRef]
+    marker_section: Optional[str] = None
 
 
 class ProcessChangeResponse(BaseModel):

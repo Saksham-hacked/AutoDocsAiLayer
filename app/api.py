@@ -21,6 +21,36 @@ async def health():
     return {"status": "ok"}
 
 
+# ── Endpoints that Layer 2 calls back into Layer 1 for ──────────────────────
+# These are STUB endpoints on Layer 2 itself — in production Layer 1 (Node.js)
+# implements these. They are provided here so Layer 2 can be tested standalone.
+
+@router.get("/files/file-content")
+async def file_content(
+    path: str,
+    repo: str,
+    owner: str,
+    branch: str,
+    x_autodocs_secret: str = Header(None, alias="X-AUTODOCS-SECRET"),
+):
+    _check_secret(x_autodocs_secret)
+    # Stub: return empty. Real implementation lives in Layer 1 (Node.js).
+    return {"content": ""}
+
+
+@router.get("/files/file-diff")
+async def file_diff(
+    path: str,
+    repo: str,
+    owner: str,
+    branch: str,
+    commit_id: str = "",
+    x_autodocs_secret: str = Header(None, alias="X-AUTODOCS-SECRET"),
+):
+    _check_secret(x_autodocs_secret)
+    return {"diff": ""}
+
+
 @router.post("/process-change", response_model=ProcessChangeResponse)
 async def process_change(
     payload: ProcessChangeRequest,

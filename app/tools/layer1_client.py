@@ -11,23 +11,25 @@ class Layer1Client:
         self.secret = secret or settings.autodocs_shared_secret
         self._headers = {"X-AUTODOCS-SECRET": self.secret, "Content-Type": "application/json"}
 
-    async def fetch_file(self, path: str, repo: str, owner: str, branch: str) -> str:
-        """Fetch raw file content from Layer1."""
-        url = f"{self.base_url}/file-content"
+    async def fetch_file(self, path: str, repo: str, owner: str, branch: str, installation_id: int = None) -> str:
+        """Fetch raw file content from Layer1 (/files/file-content)."""
+        url = f"{self.base_url}/files/file-content"
+        params = {"path": path, "repo": repo, "owner": owner, "branch": branch}
+        if installation_id:
+            params["installationId"] = installation_id
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(url, headers=self._headers, params={
-                "path": path, "repo": repo, "owner": owner, "branch": branch
-            })
+            resp = await client.get(url, headers=self._headers, params=params)
             resp.raise_for_status()
             return resp.json().get("content", "")
 
-    async def fetch_diff(self, path: str, repo: str, owner: str, branch: str, commit_id: str) -> str:
-        """Fetch diff for a file from Layer1."""
-        url = f"{self.base_url}/file-diff"
+    async def fetch_diff(self, path: str, repo: str, owner: str, branch: str, commit_id: str, installation_id: int = None) -> str:
+        """Fetch diff for a file from Layer1 (/files/file-diff)."""
+        url = f"{self.base_url}/files/file-diff"
+        params = {"path": path, "repo": repo, "owner": owner, "branch": branch, "commit_id": commit_id}
+        if installation_id:
+            params["installationId"] = installation_id
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(url, headers=self._headers, params={
-                "path": path, "repo": repo, "owner": owner, "branch": branch, "commit_id": commit_id
-            })
+            resp = await client.get(url, headers=self._headers, params=params)
             resp.raise_for_status()
             return resp.json().get("diff", "")
 

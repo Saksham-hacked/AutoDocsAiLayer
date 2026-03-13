@@ -34,14 +34,18 @@ async def update_memory(
     if req.optional and req.optional.diffs:
         diff_fallback = req.optional.diffs  # {path: diff_text}
 
-    with trace_node("update_memory", {"files": req.changedFiles, "commit": req.commitId}):
-        for path in req.changedFiles:
+    # Never summarise AutoDocs-managed doc files — wastes LLM calls and pollutes context
+    DOC_PREFIXES = ("docs/",)
+    source_files = [f for f in req.changedFiles if not f.startswith(DOC_PREFIXES)]
+
+    with trace_node("update_memory", {"files": source_files, "commit": req.commitId}):
+        for path in source_files:
             t0 = time.time()
             content = None
 
             # 1. Try to fetch full file content from Layer1
             try:
-                content = await layer1.fetch_file(path, req.repo, req.owner, req.branch)
+                content = await layer1.fetch_file(path, req.repo, req.owner, req.branch, req.installationId)
                 log("update_memory", "fetched_from_layer1", repo_id=state.repo_id,
                     commit_id=req.commitId, details={"path": path})
             except Exception as e:
