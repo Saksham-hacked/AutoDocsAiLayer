@@ -71,7 +71,7 @@ async def update_memory(
 
             # 4. Summarise with LLM
             try:
-                user_prompt = f"File: {path}\n\nContent:\n{content[:4000]}"
+                user_prompt = f"File: {path}\n\nContent:\n{content[:40000]}"
                 summary = await llm_client.complete(_SUMMARIZE_PROMPT, user_prompt, temperature=0.1)
                 log("update_memory", "summarised", repo_id=state.repo_id,
                     commit_id=req.commitId, details={"path": path, "summary_len": len(summary)})

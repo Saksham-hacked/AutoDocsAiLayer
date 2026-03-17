@@ -42,11 +42,14 @@ def replace_marker_content(text: str, section: str, new_content: str) -> str:
     start_tag = f"<!-- AUTODOCS:{section}_START -->"
     end_tag = f"<!-- AUTODOCS:{section}_END -->"
     managed_notice = "\n<!-- Managed by AutoDocs v1 — Changes may be overwritten -->\n"
+    # Strip ALL occurrences of managed notice if LLM already included it in the content
+    import re
+    clean_content = re.sub(r'<!--\s*Managed by AutoDocs v1[^>]*-->\s*', '', new_content).strip()
     start_idx = text.find(start_tag)
     end_idx = text.find(end_tag)
     if start_idx == -1 or end_idx == -1:
-        return text + f"\n{start_tag}{managed_notice}{new_content}\n{end_tag}\n"
-    return text[:start_idx + len(start_tag)] + managed_notice + new_content + "\n" + text[end_idx:]
+        return text + f"\n{start_tag}{managed_notice}{clean_content}\n{end_tag}\n"
+    return text[:start_idx + len(start_tag)] + managed_notice + clean_content + "\n" + text[end_idx:]
 
 
 def parse_llm_json(raw: str) -> dict:

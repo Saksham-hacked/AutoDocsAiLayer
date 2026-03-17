@@ -53,7 +53,7 @@ async def impact_analysis(state: GraphState, llm_client: LLMClient = None) -> Gr
     diffs = req.optional.diffs if req.optional and req.optional.diffs else {}
 
     rule_labels = _rule_based_labels(req.changedFiles, diffs)
-    diff_snippet = "\n".join(list(diffs.values())[:3])[:2000]
+    diff_snippet = "\n".join(list(diffs.values())[:3])[:10000]
 
     log("impact_analysis", "rule_labels", repo_id=state.repo_id, commit_id=req.commitId,
         details={"rule_labels": rule_labels})

@@ -27,7 +27,7 @@ async def generate_docs(
                  "retrieved_context": len(state.retrieved_context)})
 
     diffs = req.optional.diffs if req.optional and req.optional.diffs else {}
-    diff_text = "\n".join(diffs.values())[:3000]
+    diff_text = "\n".join(diffs.values())[:20000]
 
     changed_summaries_text = "\n".join(
         f"FILE: {s['file_path']}\n{s['summary']}" for s in state.changed_summaries

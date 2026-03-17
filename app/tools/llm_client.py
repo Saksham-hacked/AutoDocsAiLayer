@@ -21,7 +21,7 @@ class LLMClient:
         # Build generation config
         config = types.GenerateContentConfig(
             temperature=temperature,
-            max_output_tokens=8192,
+            max_output_tokens=65536,
         )
         
         for attempt in range(2):
