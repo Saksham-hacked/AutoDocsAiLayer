@@ -1,0 +1,11 @@
+.env
+.env.example
+.git
+__pycache__
+*.pyc
+*.pyo
+autodocsenv/
+debug_states/
+tests/
+*.md
+.gitignore

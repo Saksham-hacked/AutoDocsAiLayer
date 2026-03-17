@@ -2,15 +2,19 @@ from typing import List, Dict, Any
 import asyncpg
 from app.config import get_settings
 
-settings = get_settings()
-
 _pool = None
 
 
 async def get_pool():
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(settings.pg_dsn)
+        settings = get_settings()
+        _pool = await asyncpg.create_pool(
+            settings.pg_dsn,
+            statement_cache_size=0,  # required for pgbouncer/supabase pooler
+            min_size=1,
+            max_size=5,
+        )
     return _pool
 
 
