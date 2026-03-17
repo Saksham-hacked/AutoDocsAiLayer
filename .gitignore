@@ -57,3 +57,6 @@ pgdata/
 *.pem
 *.key
 *.p12
+
+# Debug states (can be large, generated on each run)
+debug_states/

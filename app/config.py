@@ -5,24 +5,32 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     autodocs_shared_secret: str = "changeme"
-    ollama_api_url: str = "http://localhost:11434"
-    ollama_embed_model_name: str = "embed-model"  # TODO: set to your actual Ollama embed model
-    ollama_llm_model_name: str = "mistral"         # TODO: set to your actual Ollama LLM model
-    pg_dsn: str = "postgresql://user:pass@db:5432/autodocs"
-    embedding_dim: int = 1536
+    
+    # Gemini API settings
+    gemini_api_key: str = ""
+    gemini_llm_model_name: str = "gemini-2.5-flash"
+    gemini_embed_model_name: str = "gemini-embedding-001"  # Gemini embedding model
+    
+    pg_dsn: str = "postgresql://user:pass@localhost:5432/autodocs"
+    embedding_dim: int = 768  # gemini-embedding-001 default is 3072, but can be reduced to 768
     retrieval_k: int = 5
     relevance_threshold: int = 70
     enable_langsmith: bool = False
     langsmith_api_key: str = ""
     langsmith_project: str = "autodocs-layer2"
     log_level: str = "info"
-    layer1_base_url: str = "http://localhost:8000"
+    layer1_base_url: str = "http://localhost:5000"
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
-@lru_cache()
+@lru_cache(maxsize=None)
 def get_settings() -> Settings:
     return Settings()
+
+
+def clear_settings_cache():
+    get_settings.cache_clear()

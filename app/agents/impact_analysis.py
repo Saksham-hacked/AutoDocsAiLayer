@@ -16,7 +16,7 @@ CHANGE_DOC_MAP = {
     "DEPENDENCY_UPDATE":         [("docs/setup.md", "INSTALL")],
     "FUNCTION_SIGNATURE_CHANGE": [("docs/api.md", "ROUTES")],
     "NEW_MODULE":                [("docs/architecture.md", "MODULES")],
-    "INTERNAL_REFACTOR":         [],
+    "INTERNAL_REFACTOR":         [("docs/architecture.md", "MODULES")],
     "COMMENT_ONLY":              [],
 }
 

@@ -6,6 +6,7 @@ from app.langgraph_graph import graph
 from app.models import GraphState
 from app.config import get_settings
 from app.utils import log, log_metric
+from app.debug_state import save_debug_state
 
 router = APIRouter()
 settings = get_settings()
@@ -63,6 +64,32 @@ async def process_change(
         result = await graph.ainvoke(initial_state)
         duration = (time.time() - t0) * 1000
         log_metric("commit_process_time_ms", duration, repo=payload.repo, commit=payload.commitId)
+
+        # Save debug state after pipeline completion
+        try:
+            state_file = save_debug_state(
+                state=result,
+                repo=payload.repo,
+                commit_id=payload.commitId
+            )
+            log(
+                node="api",
+                event="state_saved",
+                repo_id=f"{payload.owner}/{payload.repo}",
+                commit_id=payload.commitId,
+                duration_ms=0,
+                details={"state_file": state_file}
+            )
+        except Exception as e:
+            # Don't fail the request if state saving fails
+            log(
+                node="api",
+                event="state_save_failed",
+                repo_id=f"{payload.owner}/{payload.repo}",
+                commit_id=payload.commitId,
+                duration_ms=0,
+                details={"error": str(e)}
+            )
 
         # LangGraph ainvoke returns a plain dict — access with []
         return ProcessChangeResponse(
