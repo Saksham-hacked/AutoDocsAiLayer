@@ -30,6 +30,8 @@ def _rule_based_labels(changed_files: List[str], diffs: Dict[str, str]) -> List[
             labels.add("DEPENDENCY_UPDATE")
         if re.search(r"\.env($|\.example)", path):
             labels.add("NEW_ENV_VARIABLE")
+        if re.search(r"(model|schema|entity|struct)s?[/\\].*\.(js|ts|py|go|java)$", path, re.IGNORECASE):
+            labels.add("NEW_MODULE")
 
     if re.search(r"(app|router|route|api)\s*\.\s*(get|post|put|delete|patch)\s*\(", diff_all, re.IGNORECASE):
         labels.add("NEW_API_ROUTE")

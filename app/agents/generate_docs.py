@@ -52,14 +52,25 @@ async def generate_docs(
             existing_marker = extract_marker_content(doc_content, marker_section)
 
             existing = existing_marker.strip() if existing_marker and existing_marker.strip() else ""
+
+            # Build a section-specific instruction so the LLM never writes wrong content type
+            section_instructions = {
+                "ROUTES": "Write ONLY API route documentation. Document HTTP methods, paths, parameters, and responses. Do NOT write env vars, schemas, or setup instructions.",
+                "ENV": "Write ONLY environment variable documentation. Document each variable's name, required/optional, default, and purpose. Do NOT write API routes or schemas.",
+                "MODULES": "Write ONLY module/schema/architecture documentation. Document data models, schemas, classes, and their fields. Do NOT write API routes or env vars.",
+                "INSTALL": "Write ONLY setup and installation documentation. Document dependencies, install steps, and configuration. Do NOT write API routes or env vars.",
+            }
+            section_hint = section_instructions.get(marker_section, f"Write documentation relevant to the {marker_section} section.")
+
             user_msg = (
-                f"Doc file: {doc_path}\nSection marker: {marker_section}\n\n"
-                f"Current section content (copy this into your output unchanged, then append new entries):\n"
+                f"Doc file: {doc_path}\n"
+                f"Section: {marker_section}\n"
+                f"IMPORTANT — {section_hint}\n\n"
+                f"Current section content (preserve exactly, then append new entries):\n"
                 f"{existing if existing else '(empty)'}\n\n"
-                f"What changed in this commit:\n"
-                f"Summaries: {changed_summaries_text or '(none)'}\n"
-                f"Diff: {diff_text or '(none)'}\n"
-                f"Retrieved context: {retrieved_text or '(none)'}\n\n"
+                f"Changed files in this commit:\n{changed_summaries_text or '(none)'}\n\n"
+                f"Diff:\n{diff_text or '(none)'}\n\n"
+                f"Retrieved context:\n{retrieved_text or '(none)'}\n\n"
                 "Return ONLY valid JSON with keys: content (string), confidence (High|Medium|Low), "
                 "sources (list of {path, lines, score})."
             )
