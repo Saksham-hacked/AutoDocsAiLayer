@@ -55,10 +55,10 @@ async def generate_docs(
 
             # Build a section-specific instruction so the LLM never writes wrong content type
             section_instructions = {
-                "ROUTES": "Write ONLY API route documentation. Document HTTP methods, paths, parameters, and responses. Do NOT write env vars, schemas, or setup instructions.",
-                "ENV": "Write ONLY environment variable documentation. Document each variable's name, required/optional, default, and purpose. Do NOT write API routes or schemas.",
-                "MODULES": "Write ONLY module/schema/architecture documentation. Document data models, schemas, classes, and their fields. Do NOT write API routes or env vars.",
-                "INSTALL": "Write ONLY setup and installation documentation. Document dependencies, install steps, and configuration. Do NOT write API routes or env vars.",
+                "ROUTES": "Write ONLY API route documentation (HTTP endpoints). STRICTLY FORBIDDEN: env vars, schemas, dependencies, setup steps. ONLY document: HTTP method, path, parameters, request body, response shape, error codes.",
+                "ENV": "Write ONLY environment variable documentation. STRICTLY FORBIDDEN: API routes, schemas, code examples. ONLY document: variable name, required/optional, default value, purpose.",
+                "MODULES": "Write ONLY module/schema/architecture documentation. STRICTLY FORBIDDEN: API routes, env vars, install steps. ONLY document: data models, schemas, classes, fields, relationships.",
+                "INSTALL": "Write ONLY setup and installation documentation. STRICTLY FORBIDDEN: API routes, env vars. ONLY document: install steps, dependencies, configuration, prerequisites.",
             }
             section_hint = section_instructions.get(marker_section, f"Write documentation relevant to the {marker_section} section.")
 
