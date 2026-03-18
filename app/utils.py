@@ -27,14 +27,18 @@ def log_metric(metric: str, value: float, repo: str = "", commit: str = ""):
 
 
 def extract_marker_content(text: str, section: str) -> str:
-    """Extract content between AUTODOCS marker tags."""
+    """Extract content between AUTODOCS marker tags, stripping HTML comments."""
+    import re
     start_tag = f"<!-- AUTODOCS:{section}_START -->"
     end_tag = f"<!-- AUTODOCS:{section}_END -->"
     start_idx = text.find(start_tag)
     end_idx = text.find(end_tag)
     if start_idx == -1 or end_idx == -1:
         return ""
-    return text[start_idx + len(start_tag):end_idx]
+    content = text[start_idx + len(start_tag):end_idx]
+    # Strip all HTML comments (managed-by notices etc) before returning to LLM
+    content = re.sub(r'<!--.*?-->', '', content, flags=re.DOTALL)
+    return content.strip()
 
 
 def replace_marker_content(text: str, section: str, new_content: str) -> str:

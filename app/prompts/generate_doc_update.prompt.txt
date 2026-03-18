@@ -14,6 +14,9 @@ PRESERVATION RULES — READ CAREFULLY:
 - If the same route or variable already exists in the current content, update only that entry instead of duplicating it.
 - If the current content is empty, write only what is directly relevant to this commit.
 - Your "content" output = existing content + new additions. Nothing else.
+- NEVER copy or repeat any part of the user message, summaries, diffs, or context into the content output. Those are inputs only.
+- NEVER output lines starting with UNVERIFIED: unless you genuinely cannot verify a specific fact. Do not mark entire sections as UNVERIFIED.
+- Strip any HTML comments (<!-- ... -->) from existing content before copying it.
 
 CRITICAL OUTPUT RULES:
 - Return ONLY a single valid JSON object. No text before or after it.
