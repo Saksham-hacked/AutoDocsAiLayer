@@ -1,3 +1,4 @@
+import asyncio
 import time
 from app.models import GraphState
 from app.tools.layer1_client import Layer1Client
@@ -11,6 +12,74 @@ from pathlib import Path
 
 settings = get_settings()
 _SUMMARIZE_PROMPT = (Path(__file__).parent.parent / "prompts" / "summarize_file.prompt.txt").read_text()
+
+# Max files processed simultaneously — prevents Gemini rate limiting
+_CONCURRENCY_LIMIT = 5
+
+
+async def _process_single_file(
+    path: str,
+    state: GraphState,
+    req,
+    diff_fallback: dict,
+    layer1: Layer1Client,
+    llm_client: LLMClient,
+    embed_client: EmbeddingClient,
+    semaphore: asyncio.Semaphore,
+) -> dict | None:
+    async with semaphore:
+        t0 = time.time()
+        content = None
+
+        # 1. Try to fetch full file content from Layer1
+        try:
+            content = await layer1.fetch_file(path, req.repo, req.owner, req.branch, req.installationId)
+            log("update_memory", "fetched_from_layer1", repo_id=state.repo_id,
+                commit_id=req.commitId, details={"path": path})
+        except Exception as e:
+            log("update_memory", "layer1_unavailable", repo_id=state.repo_id,
+                commit_id=req.commitId, details={"path": path, "error": str(e)})
+
+        # 2. If Layer1 failed or returned empty, fall back to diff text from payload
+        if not content:
+            content = diff_fallback.get(path, "")
+            if content:
+                log("update_memory", "using_diff_fallback", repo_id=state.repo_id,
+                    commit_id=req.commitId, details={"path": path})
+
+        # 3. If still empty, file was deleted — remove from vector store
+        if not content:
+            try:
+                await vectorstore.delete_summary(state.repo_id, path)
+            except Exception:
+                pass
+            log("update_memory", "deleted_summary", repo_id=state.repo_id,
+                commit_id=req.commitId, details={"path": path})
+            return None
+
+        # 4. Summarise with LLM
+        try:
+            user_prompt = f"File: {path}\n\nContent:\n{content[:40000]}"
+            summary = await llm_client.complete(_SUMMARIZE_PROMPT, user_prompt, temperature=0.1)
+            log("update_memory", "summarised", repo_id=state.repo_id,
+                commit_id=req.commitId, details={"path": path, "summary_len": len(summary)})
+        except Exception as e:
+            log("update_memory", "llm_error", repo_id=state.repo_id,
+                commit_id=req.commitId, details={"path": path, "error": str(e)})
+            summary = f"File {path} was modified in commit {req.commitId}. Diff: {content[:300]}"
+
+        # 5. Embed the summary
+        try:
+            embedding = await embed_client.embed(summary)
+            await vectorstore.upsert_summary(state.repo_id, path, summary, embedding, req.commitId)
+            log("update_memory", "upserted", repo_id=state.repo_id,
+                commit_id=req.commitId, duration_ms=round((time.time() - t0) * 1000, 2),
+                details={"path": path})
+        except Exception as e:
+            log("update_memory", "embed_or_db_error", repo_id=state.repo_id,
+                commit_id=req.commitId, details={"path": path, "error": str(e)})
+
+        return {"file_path": path, "summary": summary}
 
 
 async def update_memory(
@@ -26,7 +95,6 @@ async def update_memory(
     embed_client = embed_client or EmbeddingClient()
     llm_client = llm_client or LLMClient()
     req = state.request
-    summaries = []
 
     # Pre-build a fallback content map from diffs in the request payload
     # so we can work even when Layer1 is not reachable
@@ -38,62 +106,16 @@ async def update_memory(
     DOC_PREFIXES = ("docs/",)
     source_files = [f for f in req.changedFiles if not f.startswith(DOC_PREFIXES)]
 
+    semaphore = asyncio.Semaphore(_CONCURRENCY_LIMIT)
+
     with trace_node("update_memory", {"files": source_files, "commit": req.commitId}):
-        for path in source_files:
-            t0 = time.time()
-            content = None
+        results = await asyncio.gather(*[
+            _process_single_file(path, state, req, diff_fallback, layer1, llm_client, embed_client, semaphore)
+            for path in source_files
+        ], return_exceptions=True)
 
-            # 1. Try to fetch full file content from Layer1
-            try:
-                content = await layer1.fetch_file(path, req.repo, req.owner, req.branch, req.installationId)
-                log("update_memory", "fetched_from_layer1", repo_id=state.repo_id,
-                    commit_id=req.commitId, details={"path": path})
-            except Exception as e:
-                log("update_memory", "layer1_unavailable", repo_id=state.repo_id,
-                    commit_id=req.commitId, details={"path": path, "error": str(e)})
-
-            # 2. If Layer1 failed or returned empty, fall back to diff text from payload
-            if not content:
-                content = diff_fallback.get(path, "")
-                if content:
-                    log("update_memory", "using_diff_fallback", repo_id=state.repo_id,
-                        commit_id=req.commitId, details={"path": path})
-
-            # 3. If still empty, file was deleted — remove from vector store
-            if not content:
-                try:
-                    await vectorstore.delete_summary(state.repo_id, path)
-                except Exception:
-                    pass
-                log("update_memory", "deleted_summary", repo_id=state.repo_id,
-                    commit_id=req.commitId, details={"path": path})
-                continue
-
-            # 4. Summarise with LLM
-            try:
-                user_prompt = f"File: {path}\n\nContent:\n{content[:40000]}"
-                summary = await llm_client.complete(_SUMMARIZE_PROMPT, user_prompt, temperature=0.1)
-                log("update_memory", "summarised", repo_id=state.repo_id,
-                    commit_id=req.commitId, details={"path": path, "summary_len": len(summary)})
-            except Exception as e:
-                log("update_memory", "llm_error", repo_id=state.repo_id,
-                    commit_id=req.commitId, details={"path": path, "error": str(e)})
-                # Use a minimal synthetic summary so the pipeline can still continue
-                summary = f"File {path} was modified in commit {req.commitId}. Diff: {content[:300]}"
-
-            # 5. Embed the summary
-            try:
-                embedding = await embed_client.embed(summary)
-                await vectorstore.upsert_summary(state.repo_id, path, summary, embedding, req.commitId)
-                log("update_memory", "upserted", repo_id=state.repo_id,
-                    commit_id=req.commitId, duration_ms=round((time.time() - t0) * 1000, 2),
-                    details={"path": path})
-            except Exception as e:
-                log("update_memory", "embed_or_db_error", repo_id=state.repo_id,
-                    commit_id=req.commitId, details={"path": path, "error": str(e)})
-                # Continue — we still have the summary even without the vector
-
-            summaries.append({"file_path": path, "summary": summary})
+        # Filter out None (deleted files) and any exceptions (failed files)
+        summaries = [r for r in results if isinstance(r, dict)]
 
     state.changed_summaries = summaries
     log("update_memory", "complete", repo_id=state.repo_id, commit_id=req.commitId,
